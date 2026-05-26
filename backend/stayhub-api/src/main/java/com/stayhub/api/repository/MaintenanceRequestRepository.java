@@ -3,21 +3,33 @@ package com.stayhub.api.repository;
 import com.stayhub.api.entity.MaintenanceRequest;
 import com.stayhub.api.entity.RequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
 public interface MaintenanceRequestRepository extends JpaRepository<MaintenanceRequest, Long> {
 
-    // Tìm danh sách báo hỏng thuộc cụm nhà của một Chủ nhà
-    List<MaintenanceRequest> findByOwnerId(Long ownerId);
+    @Query("""
+SELECT m FROM MaintenanceRequest m 
+WHERE m.ownerId = :ownerId
+AND (:status IS NULL OR m.status = :status)
+AND (
+    :search IS NULL 
+    OR LOWER(m.title) LIKE LOWER(CONCAT('%', :search, '%'))
+    OR LOWER(m.description) LIKE LOWER(CONCAT('%', :search, '%'))
+)
+""")
+    List<MaintenanceRequest> searchAndFilterForOwner(
+                    @Param("ownerId") Long ownerId,
+                    @Param("status") RequestStatus status,
+                    @Param("search") String search
+            );
 
-    // Tìm danh sách công việc sửa chữa được giao cho một Nhân viên
-    List<MaintenanceRequest> findByStaffId(Long staffId);
+    // Lấy danh sách công việc được giao cho nhân viên (Staff)
+    List<MaintenanceRequest> findByStaffIdAndStatusIn(Long staffId, List<RequestStatus> statuses);
 
-    // Tìm lịch sử báo hỏng của riêng một Khách thuê
-    List<MaintenanceRequest> findByTenantId(Long tenantId);
-
-    // Hàm tìm kiếm bổ trợ kết hợp trạng thái (Dùng cho logic Service nếu cần)
-    List<MaintenanceRequest> findByOwnerIdAndStatus(Long ownerId, RequestStatus status);
+    // Lấy danh sách lịch sử sự cố riêng của một phòng (Tenant View)
+    List<MaintenanceRequest> findByRoomIdOrderByCreatedAtDesc(Long roomId);
 }

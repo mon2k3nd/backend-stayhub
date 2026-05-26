@@ -12,6 +12,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -25,39 +26,100 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         return http
+                // 1. Kích hoạt cấu hình CORS chuẩn chỉnh tách biệt
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // 2. Vô hiệu hóa CSRF do ứng dụng Flutter chạy qua REST API (Stateless)
                 .csrf(csrf -> csrf.disable())
+
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Cổng API Đăng nhập/Đăng ký và xem phòng công khai cho phép truy cập tự do không cần Token
-                        .requestMatchers("/api/auth/**", "/auth/**").permitAll()
-                        .requestMatchers("/uploads/**", "/images/**").permitAll()
-                        .requestMatchers("/api/rooms", "/api/rooms/**", "/rooms/**").permitAll()
+                        // 🟢 SỬA LỖI 403: Cho phép các gói Pre-flight request (OPTIONS) từ Flutter đi qua trước
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 2. 🌟 SỬA ĐỔI QUAN TRỌNG: Mở rộng Ant-Style matchers để bao quát toàn bộ cụm API con lồng nhau và Path Variables
-                        .requestMatchers("/api/admin", "/api/admin/**", "/api/admin/*************").hasAuthority("ROLE_ADMIN")
-                        .requestMatchers("/api/owner", "/api/owner/**", "/api/owner/*************").hasAnyAuthority("ROLE_ADMIN", "ROLE_OWNER")
-                        .requestMatchers("/api/staff", "/api/staff/**", "/api/staff/*************").hasAnyAuthority("ROLE_ADMIN", "ROLE_OWNER", "ROLE_STAFF")
+                        // Public APIs (Không cần Token)
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/auth/**",
+                                "/uploads/**",
+                                "/images/**",
+                                "/api/rooms/**",
+                                "/rooms/**"
+                        ).permitAll()
 
-                        // 3. Các hành động tài nguyên hệ thống thông thường yêu cầu phải Đăng nhập hợp lệ
+                        // ADMIN
+                        .requestMatchers(
+                                "/api/admin/**",
+                                "/admin/**"
+                        ).hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+
+                        // OWNER
+                        .requestMatchers(
+                                "/api/owner/**",
+                                "/owner/**"
+                        ).hasAnyAuthority(
+                                "ADMIN",
+                                "ROLE_ADMIN",
+                                "OWNER",
+                                "ROLE_OWNER"
+                        )
+
+                        // STAFF
+                        .requestMatchers(
+                                "/api/staff/**",
+                                "/staff/**"
+                        ).hasAnyAuthority(
+                                "ADMIN",
+                                "ROLE_ADMIN",
+                                "OWNER",
+                                "ROLE_OWNER",
+                                "STAFF",
+                                "ROLE_STAFF"
+                        )
+
+                        // Các API còn lại bắt buộc đăng nhập
                         .anyRequest().authenticated()
                 )
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .sessionManagement(sess ->
+                        sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+
+                // 🟢 Đưa bộ lọc kiểm tra JWT vào vị trí sau bước lọc cấu hình Http cơ bản
+                .addFilterBefore(
+                        jwtAuthFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                )
+
                 .build();
     }
 
-    /**
-     * CẤU HÌNH CORS TOÀN DIỆN CHO THIẾT BỊ DI ĐỘNG (REAL DEVICE & EMULATOR)
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+
+        // 🟢 CẤU HÌNH CORS CHUẨN CHO SPRING BOOT 3.X VÀ FLUTTER EMULATOR:
+        // Thay vì dùng .setAllowedOrigins(List.of("*")) kèm credentials false dễ gây lỗi bắt tay HTTP,
+        // sử dụng AllowedOriginPatterns cho phép nhận dạng IP ảo 10.0.2.2 từ giả lập Android một cách an toàn.
         configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With", "Cache-Control", "Origin"));
+
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
+        ));
+
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "Accept",
+                "Origin",
+                "X-Requested-With"
+        ));
+
         configuration.setExposedHeaders(List.of("Authorization"));
+
+        // 🟢 Đổi lại thành true để hỗ trợ các gói request mang header tùy biến từ thư viện Dio
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -7,5 +7,6 @@ import java.util.List;
 
 @Repository
 public interface BillRepository extends JpaRepository<Bill, Long> {
-    List<Bill> findByIsPaidFalse(); // Sửa lỗi hàm quét hóa đơn quá hạn
+    List<Bill> findByRoomIdOrderByYearDescMonthDesc(Long roomId);
+    List<Bill> findByIsPaidFalse();
 }

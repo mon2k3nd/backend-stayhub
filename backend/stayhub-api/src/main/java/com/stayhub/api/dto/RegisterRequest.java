@@ -1,12 +1,15 @@
 package com.stayhub.api.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Data
+@Data                  // 🌟 Quan trọng: Tự động sinh Getter/Setter bao gồm cả getName() và getPhoneNumber()
+@NoArgsConstructor     // Tạo constructor không tham số bắt buộc cho Jackson map JSON
+@AllArgsConstructor    // Tạo constructor đầy đủ tham số
 public class RegisterRequest {
-    private String email;
+    private String name;
     private String password;
     private String phoneNumber;
-    private String currentPlan; // Dành cho gói dịch vụ của Chủ nhà (FREE, PRO, VIP)
-    private String appType;     // 🌟 THÊM MỚI: Định danh Role tương ứng khi gộp chung 1 app (OWNER_APP, STAFF_APP, TENANT_APP)
+    private String appType;
 }

@@ -4,9 +4,12 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class JwtService {
@@ -28,7 +31,6 @@ public class JwtService {
                 .getSubject();
     }
 
-    // 🌟 HÀM MỚI BỔ SUNG: Giúp giải mã bóc tách Role trực tiếp bên trong JwtService an toàn
     public String extractRole(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
@@ -38,12 +40,27 @@ public class JwtService {
                 .get("role", String.class);
     }
 
-    public String generateToken(String username, Map<String, Object> extraClaims) {
+    public boolean isTokenValid(String token, String username) {
+        final String extractedUsername = extractUsername(token);
+        return extractedUsername.equals(username);
+    }
+
+    // 🟢 ĐÃ SỬA: Đổi tên tham số từ extraClaims thành role và đưa vào Map để tương thích với thư viện JJWT
+    public String generateToken(String username, String role) {
+        // Khởi tạo Map chứa thông tin phân quyền tùy biến
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+
         return Jwts.builder()
-                .claims(extraClaims)
+                .claims(claims) // Truyền Map chuẩn quy cách vào đây
                 .subject(username)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 giờ
+                .expiration(
+                        new Date(
+                                System.currentTimeMillis()
+                                        + 1000 * 60 * 60 * 24
+                        )
+                )
                 .signWith(getSigningKey())
                 .compact();
     }

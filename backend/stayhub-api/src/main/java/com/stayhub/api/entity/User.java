@@ -1,37 +1,55 @@
 package com.stayhub.api.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 @Entity
 @Table(name = "users")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter // Tự động sinh toàn bộ Getters
+@Setter // Tự động sinh toàn bộ Setters
+@NoArgsConstructor // Tự động sinh Constructor không tham số bắt buộc của JPA
+@AllArgsConstructor // Tự động sinh Constructor đầy đủ tham số cho Builder
+@Builder // Hỗ trợ khởi tạo Object theo Design Pattern Builder mượt mà
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String email;
+    @Column(name = "name")
+    private String name;
 
-    @Column(nullable = false)
-    private String password;
-
-    private String fullName;
+    @Column(name = "phone_number", unique = true, nullable = false)
     private String phoneNumber;
 
-    @Enumerated(EnumType.STRING)
-    private Role role; // ADMIN, OWNER, STAFF, TENANT
+    @Column(name = "email", unique = true, nullable = false, columnDefinition = "VARCHAR(255) DEFAULT 'no-email@stayhub.com'")
+    private String email;
 
-    // ===== DÀNH RIÊNG CHO OWNER (ADMIN kiểm soát gói) =====
-    @Enumerated(EnumType.STRING)
-    private PlanType currentPlan;
-    private Integer roomLimit;
-    private Boolean isApprovedByAdmin;
+    @Column(name = "password", nullable = false)
+    private String password;
 
-    // ===== 🌟 BỔ SUNG TRƯỜNG NÀY ĐỂ FIX LỖI CHO STAFF =====
-    private Long ownerId; // Nếu role là STAFF, trường này lưu ID của Chủ nhà quản lý nhân viên này
+    @Column(name = "role_id")
+    @Builder.Default
+    private String roleId = "TENANT";
+
+    @Column(name = "package_id")
+    @Builder.Default
+    private String packageId = "FREE";
+
+    @Column(name = "is_requesting_owner")
+    @Builder.Default
+    private boolean isRequestingOwner = false; // Đã cấu hình Builder.Default để loại bỏ cảnh báo Redundant
+
+    @Column(name = "cccd_number", nullable = true)
+    private String cccdNumber;
+
+    @Column(name = "hometown", nullable = true)
+    private String hometown;
+
+    @Column(name = "gender", nullable = true)
+    private String gender;
 }

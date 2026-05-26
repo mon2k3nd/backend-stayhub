@@ -3,25 +3,33 @@ package com.stayhub.api.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Entity @Table(name = "rooms") @Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Entity
+@Table(name = "rooms")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Room {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String buildingCode; // Ví dụ: LM (Landmark)
-    private String roomNumber;   // Ví dụ: 302
+
+    @Column(name = "owner_id", nullable = false)
+    private Long ownerId;
+
+    @Column(name = "room_name", nullable = false)
+    private String roomName;
+
+    @Column(name = "price")
     private Double price;
-    private Double deposit;
 
-    @Enumerated(EnumType.STRING)
-    private RoomStatus status;
+    @Column(name = "address")
+    private String address;
 
-    private String contractImageUrl;
-    private String inspectionImageUrl;
+    @Column(name = "room_images", columnDefinition = "TEXT")
+    private String roomImages;
 
-    // Đơn giá cấu hình linh hoạt theo từng phòng
-    private Double electricityPrice;
-    private Double waterPrice;
-    private Double serviceFee; // Các loại phí dịch vụ cố định cộng thêm (mạng, vệ sinh...)
-
-    private Long ownerId; // Multi-tenant Filter
+    @Column(name = "inspection_images", columnDefinition = "TEXT")
+    private String inspectionImages;
 }

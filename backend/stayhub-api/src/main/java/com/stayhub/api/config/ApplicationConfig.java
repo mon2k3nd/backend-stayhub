@@ -1,7 +1,6 @@
 package com.stayhub.api.config;
 
 import com.stayhub.api.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,31 +15,38 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.List;
 
 @Configuration
-@RequiredArgsConstructor
 public class ApplicationConfig {
 
     private final UserRepository userRepository;
 
+    // Constructor Injection thuần thay cho Lombok để tránh lỗi không nhận diện bean
+    public ApplicationConfig(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> userRepository.findByEmail(username)
+        // Do hệ thống đăng nhập bằng Số điện thoại (identifier), biến 'username' ở đây chính là Số điện thoại
+        return username -> userRepository.findByPhoneNumber(username)
                 .map(user -> {
-                    // Ép chuẩn cấu trúc viết hoa và nối tiền tố ROLE_ cho Spring Security
-                    String roleAuthority = "ROLE_" + user.getRole().name().toUpperCase();
+                    String password = user.getPassword();
 
-                    // In log nhanh giúp việc debug luồng phân quyền chủ nhà (OWNER) trở nên dễ dàng
+                    // Lấy role_id từ Entity User (Mặc định nếu null là TENANT)
+                    String roleName = user.getRoleId() != null ? user.getRoleId() : "TENANT";
+                    String roleAuthority = "ROLE_" + roleName.toUpperCase();
+
                     System.out.println("====== [STAYHUB SECURITY CONFIG] ======");
-                    System.out.println("👉 Đang nạp Security Context cho Email: " + username);
+                    System.out.println("👉 Đang nạp Security Context cho SĐT: " + username);
                     System.out.println("👉 Quyền hạn chính thức được cấp: " + roleAuthority);
                     System.out.println("=======================================");
 
                     return new org.springframework.security.core.userdetails.User(
-                            user.getEmail(),
-                            user.getPassword(),
+                            username,
+                            password,
                             List.of(new SimpleGrantedAuthority(roleAuthority))
                     );
                 })
-                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy tài khoản với email: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy tài khoản với số điện thoại: " + username));
     }
 
     @Bean

@@ -6,14 +6,16 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,8 +28,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        // 🟢 THAY ĐỔI CHÍ MẠNG: Bỏ qua kiểm tra Token JWT đối với các API Public (/api/auth)
+        String servletPath = request.getServletPath();
+        if (servletPath.contains("/api/auth") || servletPath.contains("/auth")) {
+            filterChain.doFilter(request, response);
+            return; // Dừng xử lý filter tại đây, nhường quyền cho Controller
+        }
 
         String authHeader = request.getHeader("Authorization");
 
@@ -37,64 +49,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String jwt = authHeader.substring(7);
+
         try {
             String email = jwtService.extractUsername(jwt);
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
 
-                // 🌟 BƯỚC SỬA ĐỔI QUAN TRỌNG: Tự động giải mã Payload của chuỗi JWT để bóc tách Role
-                String tokenRole = null;
-                try {
-                    String[] chunks = jwt.split("\\.");
-                    if (chunks.length > 1) {
-                        String payload = new String(java.util.Base64.getUrlDecoder().decode(chunks[1]));
-                        if (payload.contains("\"role\":\"")) {
-                            tokenRole = payload.substring(payload.indexOf("\"role\":\"") + 8);
-                            tokenRole = tokenRole.substring(0, tokenRole.indexOf("\""));
-                        }
-                    }
-                } catch (Exception ignored) {
-                    // Bỏ qua nếu có lỗi băm chuỗi thủ công
-                }
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
+                String tokenRole = jwtService.extractRole(jwt);
 
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-                // Ưu tiên nạp quyền bóc tách được trực tiếp từ Token JWT trước
                 if (tokenRole != null && !tokenRole.isEmpty()) {
-                    if (!tokenRole.startsWith("ROLE_")) {
-                        tokenRole = "ROLE_" + tokenRole.toUpperCase();
-                    }
-                    authorities.add(new SimpleGrantedAuthority(tokenRole));
-                } else if (userDetails.getAuthorities() != null) {
-                    // Phương án dự phòng: Đọc danh sách quyền mặc định từ database của hệ thống
-                    userDetails.getAuthorities().forEach(grantedAuthority -> {
-                        String authStr = grantedAuthority.getAuthority();
-                        if (!authStr.startsWith("ROLE_")) {
-                            authStr = "ROLE_" + authStr.toUpperCase();
-                        }
-                        authorities.add(new SimpleGrantedAuthority(authStr));
-                    });
+                    String pureRole = tokenRole.replace("ROLE_", "").toUpperCase();
+                    authorities.add(new SimpleGrantedAuthority(pureRole));
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + pureRole));
                 }
 
-                // In Log sạch ra console giám sát luồng dữ liệu thực tế
-                System.out.println("\n============ [STAYHUB SECURITY CLEAR] ============");
-                System.out.println("👉 Request URL: " + request.getRequestURI());
-                System.out.println("👉 Tài khoản xác thực: " + email);
-                System.out.println("👉 Quyền hạn chính thức duyệt nạp: " + authorities);
-                System.out.println("=====================================================\n");
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                authorities
+                        );
 
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        authorities
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request)
                 );
 
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
+
         } catch (Exception e) {
-            System.err.println("❌ Lỗi xảy ra tại bộ lọc bảo mật JWT Filter: " + e.getMessage());
+            System.err.println("JWT ERROR: " + e.getMessage());
         }
 
         filterChain.doFilter(request, response);

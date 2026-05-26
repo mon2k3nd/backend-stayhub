@@ -1,13 +1,13 @@
 package com.stayhub.api.controller;
 
-import com.stayhub.api.dto.*;
+import com.stayhub.api.dto.AuthResponse;
+import com.stayhub.api.dto.LoginRequest;
 import com.stayhub.api.service.StayhubService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -18,38 +18,71 @@ public class AuthController {
     @Autowired
     private StayhubService stayhubService;
 
-    // 1. API ĐĂNG KÝ CHUNG CHO 1 ỨNG DỤNG (Phân luồng tự động dựa trên appType)
-    @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@RequestBody RegisterRequest request) {
-        try {
-            String result = stayhubService.registerUser(
-                    request.getEmail(),
-                    request.getPassword(),
-                    request.getPhoneNumber(),
-                    request.getAppType() != null ? request.getAppType() : "OWNER_APP" // Mặc định là chủ nhà nếu để trống
-            );
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("status", "Success");
-            response.put("message", result);
-
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Đăng ký thất bại: " + e.getMessage());
-        }
-    }
-
-    // 2. API ĐĂNG NHẬP CHUNG TẬP TRUNG (ĐÃ ĐỒNG BỘ ĐỘNG USER ID CHO MOBILE)
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
-            // 🌟 ĐỒNG BỘ: Gọi hàm login trả về Object AuthResponse trực tiếp từ Service
-            AuthResponse authResponse = stayhubService.login(request.getEmail(), request.getPassword());
+            System.out.println("EMAIL: " + request.getEmail());
+            System.out.println("PHONE: " + request.getPhoneNumber());
 
-            // Trả về trực tiếp authResponse (đã chứa đủ 5 trường: id, token, email, role, plan)
-            return ResponseEntity.ok(authResponse);
+            String identifier = null;
+            if (request.getPhoneNumber() != null && !request.getPhoneNumber().isBlank()) {
+                identifier = request.getPhoneNumber();
+            } else if (request.getEmail() != null && !request.getEmail().isBlank()) {
+                identifier = request.getEmail();
+            }
+
+            if (identifier == null) {
+                return ResponseEntity.badRequest().body("Thiếu email hoặc số điện thoại!");
+            }
+
+            AuthResponse response = stayhubService.login(identifier, request.getPassword());
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Đăng nhập thất bại: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+        }
+    }
+
+    // 🟢 CẬP NHẬT LOGIC ĐĂNG KÝ THỰC TẾ LƯU VÀO DATABASE PHÍA DƯỚI:
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody Map<String, Object> registerData) {
+        try {
+            // 1. Đọc dữ liệu JSON do ứng dụng Flutter gửi lên thông qua Body Request
+            String name = (String) registerData.get("name");
+            String phoneNumber = (String) registerData.get("phoneNumber");
+            String password = (String) registerData.get("password");
+            String email = (String) registerData.get("email");
+            String appType = (String) registerData.get("appType");
+
+            // 2. Kiểm tra tính hợp lệ cơ bản của dữ liệu đầu vào
+            if (phoneNumber == null || phoneNumber.isBlank() || password == null || password.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "status", "error",
+                        "message", "Số điện thoại và mật khẩu không được để trống!"
+                ));
+            }
+
+            // 3. Gọi hàm xử lý cốt lõi từ StayhubService để kiểm tra trùng lặp, mã hóa mật khẩu và lưu vào DB
+            String serviceMessage = stayhubService.registerUser(name, password, phoneNumber, email, appType);
+
+            // 4. Trả phản hồi thành công (201 Created) về cho Flutter
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "status", "success",
+                    "message", serviceMessage
+            ));
+
+        } catch (RuntimeException e) {
+            // Bắt các lỗi nghiệp vụ từ Service ném ra (Ví dụ: Số điện thoại đã tồn tại, Khách thuê chưa được khai báo,...)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "status", "error",
+                    "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "status", "error",
+                    "message", "Lỗi hệ thống nội bộ: " + e.getMessage()
+            ));
         }
     }
 }
