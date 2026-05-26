@@ -21,6 +21,27 @@ public class RoomController {
 
     private final StayhubService stayhubService;
 
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<Room>>> getAllRooms() {
+        try {
+            List<Room> rooms = stayhubService.getAllRooms();
+            return ResponseEntity.ok(
+                    ApiResponse.<List<Room>>builder()
+                            .success(true)
+                            .message("Lấy danh sách phòng thành công!")
+                            .data(rooms)
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    ApiResponse.<List<Room>>builder()
+                            .success(false)
+                            .message("Lỗi hệ thống: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
     @PostMapping(value = "/add/{ownerId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Room>> addRoom(
             @PathVariable Long ownerId,
@@ -29,15 +50,12 @@ public class RoomController {
             @RequestPart(value = "inspectionFiles", required = false) List<MultipartFile> inspectionFiles
     ) {
         try {
-            // 1. Chuyển đổi chuỗi JSON gửi từ Frontend thành Object Room Entity
             ObjectMapper objectMapper = new ObjectMapper();
             Room roomDetails = objectMapper.readValue(roomJson, Room.class);
 
-            // 2. Logic lưu file cục bộ/cloud để sinh URL (Ở đây đang làm luồng Mock dữ liệu tên file)
             List<String> roomImageUrls = new ArrayList<>();
             if (roomFiles != null) {
                 for (MultipartFile file : roomFiles) {
-                    // Thực tế: fileService.upload(file) -> trả về URL từ Cloudinary/S3
                     roomImageUrls.add("/uploads/rooms/" + System.currentTimeMillis() + "_" + file.getOriginalFilename());
                 }
             }
@@ -49,7 +67,6 @@ public class RoomController {
                 }
             }
 
-            // 3. Gọi dịch vụ xử lý lưu trữ Database
             Room savedRoom = stayhubService.createRoom(ownerId, roomDetails, roomImageUrls, inspectionImageUrls);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(

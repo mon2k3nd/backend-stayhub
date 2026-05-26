@@ -19,34 +19,23 @@ public class ApplicationConfig {
 
     private final UserRepository userRepository;
 
-    // Constructor Injection thuần thay cho Lombok để tránh lỗi không nhận diện bean
     public ApplicationConfig(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
     @Bean
     public UserDetailsService userDetailsService() {
-        // Do hệ thống đăng nhập bằng Số điện thoại (identifier), biến 'username' ở đây chính là Số điện thoại
-        return username -> userRepository.findByPhoneNumber(username)
+        return username -> userRepository.findByEmail(username)
                 .map(user -> {
-                    String password = user.getPassword();
-
-                    // Lấy role_id từ Entity User (Mặc định nếu null là TENANT)
                     String roleName = user.getRoleId() != null ? user.getRoleId() : "TENANT";
                     String roleAuthority = "ROLE_" + roleName.toUpperCase();
-
-                    System.out.println("====== [STAYHUB SECURITY CONFIG] ======");
-                    System.out.println("👉 Đang nạp Security Context cho SĐT: " + username);
-                    System.out.println("👉 Quyền hạn chính thức được cấp: " + roleAuthority);
-                    System.out.println("=======================================");
-
                     return new org.springframework.security.core.userdetails.User(
                             username,
-                            password,
+                            user.getPassword(),
                             List.of(new SimpleGrantedAuthority(roleAuthority))
                     );
                 })
-                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy tài khoản với số điện thoại: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy tài khoản với email: " + username));
     }
 
     @Bean
