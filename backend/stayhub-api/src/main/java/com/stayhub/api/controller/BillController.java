@@ -22,6 +22,39 @@ public class BillController {
         return ResponseEntity.ok(stayhubService.getAllBills(roomId));
     }
 
+    @PostMapping
+    public ResponseEntity<?> createBill(@RequestBody Bill bill) {
+        try {
+            if (bill.getRoomId() == null) {
+                return ResponseEntity.badRequest().body("Trường 'roomId' không được để trống!");
+            }
+            if (bill.getMonth() == null || bill.getMonth() < 1 || bill.getMonth() > 12) {
+                return ResponseEntity.badRequest().body("Tháng không hợp lệ (1-12)!");
+            }
+            if (bill.getYear() == null || bill.getYear() < 2020) {
+                return ResponseEntity.badRequest().body("Năm không hợp lệ!");
+            }
+            if (bill.getTotalAmount() == null || bill.getTotalAmount() < 0) {
+                return ResponseEntity.badRequest().body("Tổng tiền không hợp lệ!");
+            }
+            boolean exists = stayhubService.getAllBills(bill.getRoomId()).stream()
+                    .anyMatch(b -> b.getMonth().equals(bill.getMonth())
+                            && b.getYear().equals(bill.getYear()));
+            if (exists) {
+                return ResponseEntity.badRequest()
+                        .body("Hóa đơn tháng " + bill.getMonth() + "/" + bill.getYear()
+                                + " cho phòng này đã tồn tại!");
+            }
+            if (bill.getIsPaid() == null) {
+                bill.setIsPaid(false);
+            }
+            Bill created = stayhubService.createBill(bill);
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi tạo hóa đơn: " + e.getMessage());
+        }
+    }
+
     @PutMapping("/update-status/{billId}")
     public ResponseEntity<?> updatePaymentStatus(
             @PathVariable Long billId,
@@ -32,8 +65,6 @@ public class BillController {
             if (isPaid == null) {
                 return ResponseEntity.badRequest().body("Trường 'isPaid' không được để trống!");
             }
-            // FIX: Gọi đúng hàm updateBillStatus thay vì staffUpdateStatus (hàm của MaintenanceRequest)
-            // FIX: Kiểu trả về là Bill, không phải MaintenanceRequest
             Bill updatedBill = stayhubService.updateBillStatus(billId, isPaid);
             return ResponseEntity.ok(updatedBill);
         } catch (Exception e) {

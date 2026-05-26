@@ -27,6 +27,28 @@ public class Room {
     @Column(name = "address")
     private String address;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private RoomStatus status;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "deposit")
+    private Double deposit;
+
+    @Column(name = "max_guests")
+    private Integer maxGuests;
+
+    @Column(name = "electricity_price")
+    private Double electricityPrice;
+
+    @Column(name = "water_price")
+    private Double waterPrice;
+
+    @Column(name = "service_fee")
+    private Double serviceFee;
+
     @Column(name = "room_images", columnDefinition = "TEXT")
     private String roomImages;
 

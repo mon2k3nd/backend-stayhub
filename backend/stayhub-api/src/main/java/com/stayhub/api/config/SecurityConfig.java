@@ -3,6 +3,7 @@ package com.stayhub.api.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -26,104 +27,58 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         return http
-                // 1. Kích hoạt cấu hình CORS chuẩn chỉnh tách biệt
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // 2. Vô hiệu hóa CSRF do ứng dụng Flutter chạy qua REST API (Stateless)
                 .csrf(csrf -> csrf.disable())
-
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 🟢 SỬA LỖI 403: Cho phép các gói Pre-flight request (OPTIONS) từ Flutter đi qua trước
-                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                        // Cho phép OPTIONS (CORS preflight) đi qua trước
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Public APIs (Không cần Token)
+                        // Public — không cần token
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/auth/**",
                                 "/uploads/**",
                                 "/images/**",
-                                "/api/rooms/**",
-                                "/rooms/**"
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
                         ).permitAll()
 
+                        // Rooms — GET public, POST/PUT/DELETE cần đăng nhập
+                        .requestMatchers(HttpMethod.GET, "/api/rooms", "/api/rooms/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/rooms/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/rooms/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/rooms/**").authenticated()
+
                         // ADMIN
-                        .requestMatchers(
-                                "/api/admin/**",
-                                "/admin/**"
-                        ).hasAnyAuthority("ADMIN", "ROLE_ADMIN")
+                        .requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN", "ROLE_ADMIN")
 
-                        // OWNER
-                        .requestMatchers(
-                                "/api/owner/**",
-                                "/owner/**"
-                        ).hasAnyAuthority(
-                                "ADMIN",
-                                "ROLE_ADMIN",
-                                "OWNER",
-                                "ROLE_OWNER"
-                        )
+                        // OWNER + ADMIN — Quản lý phòng, hóa đơn, tenants, dashboard
+                        .requestMatchers("/api/dashboard/**").hasAnyAuthority("OWNER", "ROLE_OWNER", "ADMIN", "ROLE_ADMIN")
+                        .requestMatchers("/api/bills/create").hasAnyAuthority("OWNER", "ROLE_OWNER", "ADMIN", "ROLE_ADMIN")
 
-                        // STAFF
-                        .requestMatchers(
-                                "/api/staff/**",
-                                "/staff/**"
-                        ).hasAnyAuthority(
-                                "ADMIN",
-                                "ROLE_ADMIN",
-                                "OWNER",
-                                "ROLE_OWNER",
-                                "STAFF",
-                                "ROLE_STAFF"
-                        )
+                        // STAFF — xem và cập nhật trạng thái bảo trì
+                        .requestMatchers("/api/maintenance/staff/**").hasAnyAuthority("STAFF", "ROLE_STAFF", "OWNER", "ROLE_OWNER", "ADMIN", "ROLE_ADMIN")
 
-                        // Các API còn lại bắt buộc đăng nhập
+                        // Tất cả request còn lại phải đăng nhập
                         .anyRequest().authenticated()
                 )
-
-                .sessionManagement(sess ->
-                        sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
                 .authenticationProvider(authenticationProvider)
-
-                // 🟢 Đưa bộ lọc kiểm tra JWT vào vị trí sau bước lọc cấu hình Http cơ bản
-                .addFilterBefore(
-                        jwtAuthFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                )
-
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-
-        // 🟢 CẤU HÌNH CORS CHUẨN CHO SPRING BOOT 3.X VÀ FLUTTER EMULATOR:
-        // Thay vì dùng .setAllowedOrigins(List.of("*")) kèm credentials false dễ gây lỗi bắt tay HTTP,
-        // sử dụng AllowedOriginPatterns cho phép nhận dạng IP ảo 10.0.2.2 từ giả lập Android một cách an toàn.
-        configuration.setAllowedOriginPatterns(List.of("*"));
-
-        configuration.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
-        ));
-
-        configuration.setAllowedHeaders(Arrays.asList(
-                "Authorization",
-                "Content-Type",
-                "Accept",
-                "Origin",
-                "X-Requested-With"
-        ));
-
-        configuration.setExposedHeaders(List.of("Authorization"));
-
-        // 🟢 Đổi lại thành true để hỗ trợ các gói request mang header tùy biến từ thư viện Dio
-        configuration.setAllowCredentials(true);
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }

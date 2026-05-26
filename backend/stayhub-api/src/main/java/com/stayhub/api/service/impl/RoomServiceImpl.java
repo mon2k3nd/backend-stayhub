@@ -2,6 +2,7 @@ package com.stayhub.api.service.impl;
 
 import com.stayhub.api.dto.request.RoomRequestDTO;
 import com.stayhub.api.entity.Room;
+import com.stayhub.api.entity.RoomStatus;
 import com.stayhub.api.repository.RoomRepository;
 import com.stayhub.api.service.RoomService;
 import lombok.RequiredArgsConstructor;
@@ -18,17 +19,20 @@ public class RoomServiceImpl implements RoomService {
         Room room = new Room();
         room.setOwnerId(ownerId);
 
-        // SỬA: Đọc chuẩn dữ liệu từ RoomRequestDTO và set vào các trường thực tế của Room.java
-        String roomName = (request.getRoomNumber() != null) ? request.getRoomNumber() : "";
-        room.setRoomName(roomName);
+        room.setRoomName(request.getRoomNumber() != null ? request.getRoomNumber() : "");
+        room.setPrice(request.getPrice() != null ? request.getPrice() : 0.0);
+        room.setAddress(request.getLocation() != null ? request.getLocation() : "");
 
-        Double roomPrice = (request.getPrice() != null) ? request.getPrice() : 0.0;
-        room.setPrice(roomPrice);
+        // status enum → enum, gán thẳng
+        room.setStatus(request.getStatus() != null ? request.getStatus() : RoomStatus.TRONG);
 
-        String address = (request.getLocation() != null) ? request.getLocation() : "";
-        room.setAddress(address);
+        room.setDescription(request.getDescription());
+        room.setDeposit(request.getDeposit() != null ? request.getDeposit() : 0.0);
+        room.setMaxGuests(request.getMaxGuests());
+        room.setElectricityPrice(request.getElectricityPrice() != null ? request.getElectricityPrice() : 4000.0);
+        room.setWaterPrice(request.getWaterPrice() != null ? request.getWaterPrice() : 30000.0);
+        room.setServiceFee(request.getServiceFee() != null ? request.getServiceFee() : 50000.0);
 
-        // Khởi tạo chuỗi văn bản rỗng cho ảnh để tương thích kiểu String trong Room.java
         room.setRoomImages("");
         room.setInspectionImages("");
 
