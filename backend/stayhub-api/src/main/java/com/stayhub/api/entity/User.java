@@ -1,19 +1,11 @@
 package com.stayhub.api.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.*;
 
 @Entity
 @Table(name = "users")
-@Getter // Tự động sinh toàn bộ Getters
-@Setter // Tự động sinh toàn bộ Setters
-@NoArgsConstructor // Tự động sinh Constructor không tham số bắt buộc của JPA
-@AllArgsConstructor // Tự động sinh Constructor đầy đủ tham số cho Builder
-@Builder // Hỗ trợ khởi tạo Object theo Design Pattern Builder mượt mà
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User {
 
     @Id
@@ -40,16 +32,33 @@ public class User {
     @Builder.Default
     private String packageId = "FREE";
 
+    // ACTIVE | LOCKED | PENDING_KYC
+    @Column(name = "account_status")
+    @Builder.Default
+    private String accountStatus = "ACTIVE";
+
     @Column(name = "is_requesting_owner")
     @Builder.Default
-    private boolean isRequestingOwner = false; // Đã cấu hình Builder.Default để loại bỏ cảnh báo Redundant
+    private boolean isRequestingOwner = false;
 
-    @Column(name = "cccd_number", nullable = true)
+    @Column(name = "cccd_number")
     private String cccdNumber;
 
-    @Column(name = "hometown", nullable = true)
+    @Column(name = "cccd_front_url")
+    private String cccdFrontUrl;
+
+    @Column(name = "cccd_back_url")
+    private String cccdBackUrl;
+
+    @Column(name = "hometown")
     private String hometown;
 
-    @Column(name = "gender", nullable = true)
+    @Column(name = "gender")
     private String gender;
+
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
+    @Column(name = "fcm_token")
+    private String fcmToken;
 }

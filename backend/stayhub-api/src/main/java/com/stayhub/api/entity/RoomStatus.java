@@ -1,9 +1,8 @@
 package com.stayhub.api.entity;
 
 public enum RoomStatus {
-    TRONG,
-    DA_THUE,
-    DANG_O,
-    CAN_DON_DEP,
-    SAP_HET_HAN
+    TRONG,      // Phòng trống, đang cho thuê
+    DA_THUE,    // Đã có khách
+    BAO_TRI,    // Đang bảo trì
+    DONG_CUA    // Không sử dụng
 }

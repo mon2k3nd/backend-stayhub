@@ -5,18 +5,18 @@ import lombok.*;
 
 @Entity
 @Table(name = "rooms")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Room {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "owner_id", nullable = false)
     private Long ownerId;
+
+    @Column(name = "branch_id")
+    private Long branchId;
 
     @Column(name = "room_name", nullable = false)
     private String roomName;
@@ -29,7 +29,8 @@ public class Room {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private RoomStatus status;
+    @Builder.Default
+    private RoomStatus status = RoomStatus.TRONG;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
@@ -54,4 +55,15 @@ public class Room {
 
     @Column(name = "inspection_images", columnDefinition = "TEXT")
     private String inspectionImages;
+
+    // Mã QR tự động sinh khi tạo phòng: base64 hoặc URL ảnh QR
+    @Column(name = "qr_code", columnDefinition = "TEXT")
+    private String qrCode;
+
+    // Phòng đang có khách thuê
+    @Column(name = "current_tenant_id")
+    private Long currentTenantId;
+
+    @Column(name = "current_contract_id")
+    private Long currentContractId;
 }

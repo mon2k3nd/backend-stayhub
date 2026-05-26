@@ -1,0 +1,16 @@
+package com.stayhub.api.entity;
+
+public enum NotificationType {
+    KYC_APPROVED,
+    KYC_REJECTED,
+    PACKAGE_ACTIVATED,
+    BILL_ISSUED,
+    BILL_OVERDUE,
+    CONTRACT_SIGNED,
+    CONTRACT_EXPIRING,
+    CONTRACT_TERMINATED,
+    MAINTENANCE_ASSIGNED,
+    MAINTENANCE_RESOLVED,
+    ROOM_RESERVED,
+    GENERAL
+}

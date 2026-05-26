@@ -7,6 +7,7 @@ import java.util.List;
 
 @Repository
 public interface OwnerTenantMappingRepository extends JpaRepository<OwnerTenantMapping, Long> {
-    List<OwnerTenantMapping> findByTenantPhoneNumber(String phoneNumber); // Sửa lỗi hàm
-    List<OwnerTenantMapping> findByRoomId(Long roomId); // Sửa lỗi hàm
+    List<OwnerTenantMapping> findByOwnerId(Long ownerId);
+    List<OwnerTenantMapping> findByOwnerIdAndMappingType(Long ownerId, String mappingType);
+    boolean existsByOwnerIdAndTenantId(Long ownerId, Long tenantId);
 }
