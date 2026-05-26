@@ -22,14 +22,21 @@ AND (
 )
 """)
     List<MaintenanceRequest> searchAndFilterForOwner(
-                    @Param("ownerId") Long ownerId,
-                    @Param("status") RequestStatus status,
-                    @Param("search") String search
-            );
+            @Param("ownerId") Long ownerId,
+            @Param("status") RequestStatus status,
+            @Param("search") String search
+    );
 
-    // Lấy danh sách công việc được giao cho nhân viên (Staff)
     List<MaintenanceRequest> findByStaffIdAndStatusIn(Long staffId, List<RequestStatus> statuses);
 
-    // Lấy danh sách lịch sử sự cố riêng của một phòng (Tenant View)
     List<MaintenanceRequest> findByRoomIdOrderByCreatedAtDesc(Long roomId);
+
+    List<MaintenanceRequest> findByTenantIdOrderByCreatedAtDesc(Long tenantId);
+
+    // FIX: Đếm trực tiếp trong DB — tránh findAll() tải toàn bộ bảng
+    @Query("SELECT COUNT(m) FROM MaintenanceRequest m WHERE m.ownerId = :ownerId AND m.status IN :statuses")
+    long countByOwnerIdAndStatusIn(
+            @Param("ownerId") Long ownerId,
+            @Param("statuses") List<RequestStatus> statuses
+    );
 }

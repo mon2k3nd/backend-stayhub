@@ -42,8 +42,6 @@ public class StayhubService {
     // ============================================================
 
     public AuthResponse login(String identifier, String password) {
-        // FIX: Dùng findByPhoneNumber trực tiếp, nếu không có thì dùng findByEmail
-        // Tránh gọi findAll() cực kỳ tốn kém
         User user = userRepo.findByPhoneNumber(identifier)
                 .or(() -> userRepo.findByEmail(identifier))
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với: " + identifier));
@@ -82,7 +80,6 @@ public class StayhubService {
         if ("OWNER_APP".equalsIgnoreCase(appType)) {
             resolvedRole = "OWNER";
         } else if ("TENANT_APP".equalsIgnoreCase(appType)) {
-            // FIX: Dùng query trực tiếp thay vì findAll().stream()
             boolean isDeclared = tenantRepo.findByPhoneNumber(phoneNumber).isPresent();
             if (!isDeclared) {
                 throw new RuntimeException("Số điện thoại chưa được Chủ trọ khai báo! Liên hệ chủ nhà để được thêm vào hệ thống.");
@@ -149,17 +146,13 @@ public class StayhubService {
 
     @Transactional
     public Room createRoom(Long ownerId, Room room, List<String> roomImageUrls, List<String> inspectionImageUrls) {
-        // FIX: Gán đúng ownerId vào room trước khi lưu
         room.setOwnerId(ownerId);
-
-        // FIX: Lưu danh sách ảnh thực sự vào entity
         if (roomImageUrls != null && !roomImageUrls.isEmpty()) {
             room.setRoomImages(String.join(",", roomImageUrls));
         }
         if (inspectionImageUrls != null && !inspectionImageUrls.isEmpty()) {
             room.setInspectionImages(String.join(",", inspectionImageUrls));
         }
-
         return roomRepo.save(room);
     }
 
@@ -236,6 +229,11 @@ public class StayhubService {
         return billRepo.save(bill);
     }
 
+    // FIX: EXISTS query thay vì tải toàn bộ bills rồi .stream().anyMatch()
+    public boolean billExistsForMonth(Long roomId, Integer month, Integer year) {
+        return billRepo.existsByRoomIdAndMonthAndYear(roomId, month, year);
+    }
+
     @Transactional
     public Bill updateBillStatus(Long billId, Boolean isPaid) {
         Bill bill = billRepo.findById(billId)
@@ -245,7 +243,7 @@ public class StayhubService {
     }
 
     // ============================================================
-    // DASHBOARD SUMMARY
+    // DASHBOARD SUMMARY — ĐÃ SỬA N+1 QUERY
     // ============================================================
 
     public Map<String, Object> getDashboardSummary(Long ownerId) {
@@ -255,27 +253,28 @@ public class StayhubService {
                 .filter(r -> r.getStatus() != null && r.getStatus() == RoomStatus.DA_THUE)
                 .count();
         long emptyRooms = totalRooms - occupiedRooms;
-        long totalTenants = tenantRepo.findByOwnerId(ownerId).size();
+
+        // FIX: countByOwnerId thay vì findByOwnerId().size()
+        long totalTenants = tenantRepo.countByOwnerId(ownerId);
 
         List<Long> roomIds = rooms.stream().map(Room::getId).collect(Collectors.toList());
 
         double totalRevenue = 0;
         long unpaidCount = 0;
-        for (Long roomId : roomIds) {
-            List<Bill> bills = billRepo.findByRoomIdOrderByYearDescMonthDesc(roomId);
-            for (Bill b : bills) {
-                if (Boolean.TRUE.equals(b.getIsPaid())) {
-                    totalRevenue += (b.getTotalAmount() != null ? b.getTotalAmount() : 0);
-                } else {
-                    unpaidCount++;
-                }
-            }
+
+        if (!roomIds.isEmpty()) {
+            // FIX: 2 aggregate queries thay vì N queries (1 query/phòng)
+            // 30 phòng trước đây = 30 lần gọi DB → giờ chỉ còn 2 lần
+            totalRevenue = billRepo.sumRevenueByRoomIdIn(roomIds);
+            unpaidCount = billRepo.countUnpaidByRoomIdIn(roomIds);
         }
 
-        long pendingMaintenance = maintenanceRepo.findAll().stream()
-                .filter(m -> m.getOwnerId() != null && m.getOwnerId().equals(ownerId))
-                .filter(m -> m.getStatus() == RequestStatus.PENDING || m.getStatus() == RequestStatus.PROCESSING)
-                .count();
+        // FIX: countByOwnerIdAndStatusIn thay vì findAll().stream().filter()
+        // Trước đây tải TOÀN BỘ bảng maintenance → giờ WHERE trực tiếp trong DB
+        long pendingMaintenance = maintenanceRepo.countByOwnerIdAndStatusIn(
+                ownerId,
+                List.of(RequestStatus.PENDING, RequestStatus.PROCESSING)
+        );
 
         Map<String, Object> summary = new HashMap<>();
         summary.put("totalRooms", totalRooms);
@@ -337,18 +336,21 @@ public class StayhubService {
     }
 
     public List<MaintenanceRequest> getMaintenanceForOwner(Long ownerId, String statusStr, String search) {
-        // FIX: Chuyển đổi String -> RequestStatus đúng cách với try-catch
         RequestStatus status = null;
         if (statusStr != null && !statusStr.isBlank()) {
             try {
                 status = RequestStatus.valueOf(statusStr.toUpperCase().trim());
             } catch (IllegalArgumentException e) {
-                // Nếu status không hợp lệ thì bỏ qua filter status
                 status = null;
             }
         }
         String cleanSearch = (search != null && search.isBlank()) ? null : search;
         return maintenanceRepo.searchAndFilterForOwner(ownerId, status, cleanSearch);
+    }
+
+    // FIX: Thêm method lấy maintenance theo tenantId (trước đây bị thiếu)
+    public List<MaintenanceRequest> getMaintenanceForTenant(Long tenantId) {
+        return maintenanceRepo.findByTenantIdOrderByCreatedAtDesc(tenantId);
     }
 
     @Transactional
@@ -367,7 +369,8 @@ public class StayhubService {
         try {
             req.setStatus(RequestStatus.valueOf(statusStr.toUpperCase().trim()));
         } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Trạng thái không hợp lệ: " + statusStr + ". Hợp lệ: PENDING, PROCESSING, DONE, CANCELLED");
+            throw new RuntimeException("Trạng thái không hợp lệ: " + statusStr
+                    + ". Hợp lệ: PENDING, PROCESSING, DONE, CANCELLED");
         }
         return maintenanceRepo.save(req);
     }

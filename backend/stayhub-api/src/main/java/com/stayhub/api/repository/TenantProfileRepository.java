@@ -8,6 +8,8 @@ import java.util.Optional;
 
 @Repository
 public interface TenantProfileRepository extends JpaRepository<TenantProfile, Long> {
-    Optional<TenantProfile> findByPhoneNumber(String phoneNumber); // Sửa lỗi hàm
+    Optional<TenantProfile> findByPhoneNumber(String phoneNumber);
     List<TenantProfile> findByOwnerId(Long ownerId);
+    // FIX: Đếm thẳng bằng DB thay vì findByOwnerId().size()
+    long countByOwnerId(Long ownerId);
 }

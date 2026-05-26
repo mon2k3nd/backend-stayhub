@@ -37,14 +37,16 @@ public class BillController {
             if (bill.getTotalAmount() == null || bill.getTotalAmount() < 0) {
                 return ResponseEntity.badRequest().body("Tổng tiền không hợp lệ!");
             }
-            boolean exists = stayhubService.getAllBills(bill.getRoomId()).stream()
-                    .anyMatch(b -> b.getMonth().equals(bill.getMonth())
-                            && b.getYear().equals(bill.getYear()));
-            if (exists) {
+
+            // FIX: Dùng EXISTS query trực tiếp thay vì tải toàn bộ bills rồi filter
+            // Trước đây: getAllBills(roomId).stream().anyMatch(...) → tải tất cả bills
+            // Bây giờ: SELECT EXISTS(...) → 1 query nhanh, không tải data thừa
+            if (stayhubService.billExistsForMonth(bill.getRoomId(), bill.getMonth(), bill.getYear())) {
                 return ResponseEntity.badRequest()
                         .body("Hóa đơn tháng " + bill.getMonth() + "/" + bill.getYear()
                                 + " cho phòng này đã tồn tại!");
             }
+
             if (bill.getIsPaid() == null) {
                 bill.setIsPaid(false);
             }
