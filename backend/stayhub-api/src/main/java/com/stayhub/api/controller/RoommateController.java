@@ -13,7 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/roommates")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class RoommateController {
 
     private final RoommateService roommateService;

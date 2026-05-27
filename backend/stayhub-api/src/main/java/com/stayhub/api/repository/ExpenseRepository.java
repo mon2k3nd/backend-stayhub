@@ -14,4 +14,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
     @Query("SELECT SUM(e.amount) FROM Expense e WHERE e.ownerId = :ownerId AND e.expenseDate BETWEEN :from AND :to")
     Double sumByOwnerIdAndDateRange(Long ownerId, LocalDate from, LocalDate to);
+
+    @Query("SELECT e FROM Expense e WHERE e.ownerId = :ownerId AND MONTH(e.expenseDate) = :month AND YEAR(e.expenseDate) = :year")
+    List<Expense> findByOwnerIdAndMonthAndYear(Long ownerId, int month, int year);
 }

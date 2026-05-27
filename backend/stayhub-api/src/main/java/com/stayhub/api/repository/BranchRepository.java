@@ -9,4 +9,5 @@ import java.util.List;
 public interface BranchRepository extends JpaRepository<Branch, Long> {
     List<Branch> findByOwnerIdAndIsActiveTrue(Long ownerId);
     List<Branch> findByOwnerId(Long ownerId);
+    long countByOwnerId(Long ownerId);
 }

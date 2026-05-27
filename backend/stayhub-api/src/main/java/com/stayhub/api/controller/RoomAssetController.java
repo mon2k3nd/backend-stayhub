@@ -13,7 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/assets")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class RoomAssetController {
 
     private final RoomAssetService roomAssetService;

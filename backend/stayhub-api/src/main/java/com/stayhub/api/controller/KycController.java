@@ -15,7 +15,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/kyc")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class KycController {
 
     private final KycService kycService;

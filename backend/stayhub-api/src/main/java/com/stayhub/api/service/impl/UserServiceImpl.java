@@ -4,6 +4,7 @@ import com.stayhub.api.config.JwtUtil;
 import com.stayhub.api.dto.request.LoginRequest;
 import com.stayhub.api.dto.request.RegisterRequest;
 import com.stayhub.api.dto.response.LoginResponse;
+import com.stayhub.api.dto.response.UserProfileResponse;
 import com.stayhub.api.entity.User;
 import com.stayhub.api.exception.ResourceNotFoundException;
 import com.stayhub.api.repository.UserRepository;
@@ -11,6 +12,8 @@ import com.stayhub.api.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -84,6 +87,41 @@ public class UserServiceImpl implements UserService {
     public User getById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user ID: " + id));
+    }
+
+    @Override
+    public UserProfileResponse getProfileById(Long id) {
+        return UserProfileResponse.from(getById(id));
+    }
+
+    @Override
+    public UserProfileResponse updateProfile(Long userId, Map<String, String> fields) {
+        User user = getById(userId);
+        if (fields.containsKey("name")) user.setName(fields.get("name"));
+        if (fields.containsKey("hometown")) user.setHometown(fields.get("hometown"));
+        if (fields.containsKey("gender")) user.setGender(fields.get("gender"));
+        if (fields.containsKey("avatarUrl")) user.setAvatarUrl(fields.get("avatarUrl"));
+        if (fields.containsKey("email")) {
+            String newEmail = fields.get("email");
+            if (!newEmail.equals(user.getEmail()) && userRepository.existsByEmail(newEmail)) {
+                throw new IllegalStateException("Email đã được sử dụng bởi tài khoản khác!");
+            }
+            user.setEmail(newEmail);
+        }
+        return UserProfileResponse.from(userRepository.save(user));
+    }
+
+    @Override
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự!");
+        }
+        User user = getById(userId);
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new IllegalStateException("Mật khẩu cũ không đúng!");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     @Override

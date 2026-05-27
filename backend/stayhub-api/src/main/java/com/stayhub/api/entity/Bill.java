@@ -44,6 +44,14 @@ public class Bill {
     @Column(name = "water_previous")
     private Double waterPrevious;
 
+    /** Đơn giá điện (kWh) — lấy từ hợp đồng */
+    @Column(name = "electric_unit_price")
+    private Double electricUnitPrice;
+
+    /** Đơn giá nước (m3) — lấy từ hợp đồng */
+    @Column(name = "water_unit_price")
+    private Double waterUnitPrice;
+
     @Column(name = "electric_amount")
     private Double electricAmount;
 
