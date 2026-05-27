@@ -16,11 +16,19 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 10MB
+      max-request-size: 20MB
 
 server:
   port: 8089
 
-# FIX: Secret phai co it nhat 32 ky tu (256 bits) cho HMAC-SHA256
 jwt:
   secret: StayHub2026SuperSecretKeyForJWTAuthMustBe256BitsLong!@#Secure
+  expiration: 86400000
+
+upload:
+  directory: uploads/
+
+logging:
+  level:
+    com.stayhub: INFO
+    org.springframework.security: WARN
