@@ -33,7 +33,7 @@ public class StaffServiceImpl implements StaffService {
                 .name(name)
                 .phoneNumber(phoneNumber)
                 .email("staff_" + phoneNumber + "@stayhub.com")
-                .password(passwordEncoder.encode(password))
+                .passwordHash(passwordEncoder.encode(password))
                 .roleId("STAFF")
                 .accountStatus("ACTIVE")
                 .build();

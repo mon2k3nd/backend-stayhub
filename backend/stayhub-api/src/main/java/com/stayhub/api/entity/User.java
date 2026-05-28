@@ -2,6 +2,9 @@ package com.stayhub.api.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
@@ -12,43 +15,39 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name")
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "phone_number", unique = true, nullable = false)
     private String phoneNumber;
 
-    @Column(name = "email", unique = true, nullable = false, columnDefinition = "VARCHAR(255) DEFAULT 'no-email@stayhub.com'")
+    @Column(name = "email", unique = true)
     private String email;
 
-    @Column(name = "password", nullable = false)
-    private String password;
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
 
-    @Column(name = "role_id")
+    @Column(name = "role_id", nullable = false)
     @Builder.Default
     private String roleId = "TENANT";
 
-    @Column(name = "package_id")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
     @Builder.Default
-    private String packageId = "FREE";
+    private UserStatus status = UserStatus.PENDING_VERIFICATION;
 
-    // ACTIVE | LOCKED | PENDING_KYC
     @Column(name = "account_status")
-    @Builder.Default
-    private String accountStatus = "ACTIVE";
+    private String accountStatus;
 
     @Column(name = "is_requesting_owner")
     @Builder.Default
-    private boolean isRequestingOwner = false;
+    private boolean requestingOwner = false;
+
+    @Column(name = "package_id")
+    private String packageId;
 
     @Column(name = "cccd_number")
     private String cccdNumber;
-
-    @Column(name = "cccd_front_url")
-    private String cccdFrontUrl;
-
-    @Column(name = "cccd_back_url")
-    private String cccdBackUrl;
 
     @Column(name = "hometown")
     private String hometown;
@@ -61,4 +60,16 @@ public class User {
 
     @Column(name = "fcm_token")
     private String fcmToken;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public enum UserStatus {
+        PENDING_VERIFICATION, ACTIVE, LOCKED
+    }
 }

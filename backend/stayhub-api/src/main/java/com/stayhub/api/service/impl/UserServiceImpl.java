@@ -25,25 +25,32 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public LoginResponse register(RegisterRequest req) {
+
         if (userRepository.existsByPhoneNumber(req.getPhoneNumber())) {
             throw new IllegalStateException("Số điện thoại đã được đăng ký!");
+        }
+
+        if (userRepository.existsByEmail(req.getName())) {
+            throw new IllegalStateException("Email đã được đăng ký!");
         }
 
         User user = User.builder()
                 .name(req.getName())
                 .phoneNumber(req.getPhoneNumber())
-                .email("user_" + req.getPhoneNumber() + "@stayhub.com")
-                .password(passwordEncoder.encode(req.getPassword()))
+                .email(req.getName())
+                .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .roleId("TENANT")
                 .packageId("FREE")
-                .accountStatus("ACTIVE")
-                .cccdNumber(req.getCccdNumber())
-                .hometown(req.getHometown())
-                .gender(req.getGender())
+                .status(User.UserStatus.ACTIVE)
                 .build();
 
         User saved = userRepository.save(user);
-        String token = jwtUtil.generateToken(saved.getId(), saved.getRoleId(), saved.getPackageId());
+
+        String token = jwtUtil.generateToken(
+                saved.getId(),
+                saved.getRoleId(),
+                saved.getPackageId()
+        );
 
         return LoginResponse.builder()
                 .accessToken(token)
@@ -52,24 +59,33 @@ public class UserServiceImpl implements UserService {
                 .phoneNumber(saved.getPhoneNumber())
                 .roleId(saved.getRoleId())
                 .packageId(saved.getPackageId())
-                .accountStatus(saved.getAccountStatus())
+                .accountStatus(saved.getStatus().name())
                 .build();
     }
 
     @Override
     public LoginResponse login(LoginRequest req) {
-        User user = userRepository.findByPhoneNumber(req.getPhoneNumber())
-                .orElseThrow(() -> new IllegalStateException("Số điện thoại không tồn tại!"));
 
-        if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+        User user = userRepository.findByPhoneNumber(req.getPhoneNumber())
+                .orElseThrow(() ->
+                        new IllegalStateException("Số điện thoại không tồn tại!")
+                );
+
+        if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
             throw new IllegalStateException("Mật khẩu không đúng!");
         }
 
-        if ("LOCKED".equals(user.getAccountStatus())) {
-            throw new IllegalStateException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ ADMIN!");
+        if (user.getStatus() == User.UserStatus.LOCKED) {
+            throw new IllegalStateException(
+                    "Tài khoản của bạn đã bị khóa!"
+            );
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getRoleId(), user.getPackageId());
+        String token = jwtUtil.generateToken(
+                user.getId(),
+                user.getRoleId(),
+                user.getPackageId()
+        );
 
         return LoginResponse.builder()
                 .accessToken(token)
@@ -78,15 +94,18 @@ public class UserServiceImpl implements UserService {
                 .phoneNumber(user.getPhoneNumber())
                 .roleId(user.getRoleId())
                 .packageId(user.getPackageId())
-                .accountStatus(user.getAccountStatus())
-                .avatarUrl(user.getAvatarUrl())
+                .accountStatus(user.getStatus().name())
                 .build();
     }
 
     @Override
     public User getById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user ID: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Không tìm thấy user ID: " + id
+                        )
+                );
     }
 
     @Override
@@ -95,53 +114,86 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserProfileResponse updateProfile(Long userId, Map<String, String> fields) {
+    public UserProfileResponse updateProfile(
+            Long userId,
+            Map<String, String> fields
+    ) {
+
         User user = getById(userId);
-        if (fields.containsKey("name")) user.setName(fields.get("name"));
-        if (fields.containsKey("hometown")) user.setHometown(fields.get("hometown"));
-        if (fields.containsKey("gender")) user.setGender(fields.get("gender"));
-        if (fields.containsKey("avatarUrl")) user.setAvatarUrl(fields.get("avatarUrl"));
+
+        if (fields.containsKey("fullName")) {
+            user.setName(fields.get("fullName"));
+        }
+
         if (fields.containsKey("email")) {
+
             String newEmail = fields.get("email");
-            if (!newEmail.equals(user.getEmail()) && userRepository.existsByEmail(newEmail)) {
-                throw new IllegalStateException("Email đã được sử dụng bởi tài khoản khác!");
+
+            if (!newEmail.equals(user.getEmail())
+                    && userRepository.existsByEmail(newEmail)) {
+
+                throw new IllegalStateException(
+                        "Email đã được sử dụng!"
+                );
             }
+
             user.setEmail(newEmail);
         }
-        return UserProfileResponse.from(userRepository.save(user));
+
+        return UserProfileResponse.from(
+                userRepository.save(user)
+        );
     }
 
     @Override
-    public void changePassword(Long userId, String oldPassword, String newPassword) {
-        if (newPassword == null || newPassword.length() < 6) {
-            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự!");
-        }
+    public void changePassword(
+            Long userId,
+            String oldPassword,
+            String newPassword
+    ) {
+
         User user = getById(userId);
-        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new IllegalStateException("Mật khẩu cũ không đúng!");
+
+        if (!passwordEncoder.matches(
+                oldPassword,
+                user.getPasswordHash()
+        )) {
+
+            throw new IllegalStateException(
+                    "Mật khẩu cũ không đúng!"
+            );
         }
-        user.setPassword(passwordEncoder.encode(newPassword));
+
+        user.setPasswordHash(
+                passwordEncoder.encode(newPassword)
+        );
+
         userRepository.save(user);
     }
 
     @Override
-    public User updateFcmToken(Long userId, String fcmToken) {
-        User user = getById(userId);
-        user.setFcmToken(fcmToken);
-        return userRepository.save(user);
-    }
-
-    @Override
     public void lockAccount(Long userId) {
+
         User user = getById(userId);
-        user.setAccountStatus("LOCKED");
+
+        user.setStatus(User.UserStatus.LOCKED);
+
         userRepository.save(user);
     }
 
     @Override
     public void unlockAccount(Long userId) {
+
         User user = getById(userId);
-        user.setAccountStatus("ACTIVE");
+
+        user.setStatus(User.UserStatus.ACTIVE);
+
         userRepository.save(user);
+    }
+    @Override
+    public User updateFcmToken(Long userId, String fcmToken) {
+        User user = getById(userId);
+        user.setFcmToken(fcmToken);
+        return userRepository.save(user);
     }
 }

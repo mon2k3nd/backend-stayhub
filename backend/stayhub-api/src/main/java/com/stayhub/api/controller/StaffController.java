@@ -15,6 +15,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/staff")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
+
 public class StaffController {
 
     private final StaffService staffService;

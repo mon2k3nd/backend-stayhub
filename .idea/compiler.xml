@@ -15,7 +15,7 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="api" options="-parameters" />
-      <module name="stayhub-api" options="-parameters" />
+      <module name="stayhub-api" options="-parameters -Xlint:-unchecked" />
     </option>
   </component>
 </project>
