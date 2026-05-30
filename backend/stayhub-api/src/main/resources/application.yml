@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/stayhub_db
     username: postgres
-    password: stayhub123
+    password: 12345678
 
   jpa:
     hibernate:

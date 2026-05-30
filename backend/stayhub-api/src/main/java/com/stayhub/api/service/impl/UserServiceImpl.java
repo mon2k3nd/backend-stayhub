@@ -1,9 +1,9 @@
 package com.stayhub.api.service.impl;
 
 import com.stayhub.api.config.JwtUtil;
-import com.stayhub.api.dto.request.LoginRequest;
-import com.stayhub.api.dto.request.RegisterRequest;
+import com.stayhub.api.dto.response.LoginRequest;
 import com.stayhub.api.dto.response.LoginResponse;
+import com.stayhub.api.dto.response.RegisterRequest;
 import com.stayhub.api.dto.response.UserProfileResponse;
 import com.stayhub.api.entity.User;
 import com.stayhub.api.exception.ResourceNotFoundException;
@@ -17,27 +17,26 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class UserServiceImpl implements UserService {
+public abstract class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    @Override
     public LoginResponse register(RegisterRequest req) {
 
         if (userRepository.existsByPhoneNumber(req.getPhoneNumber())) {
             throw new IllegalStateException("Số điện thoại đã được đăng ký!");
         }
 
-        if (userRepository.existsByEmail(req.getName())) {
+        if (userRepository.existsByEmail(req.getEmail())) {
             throw new IllegalStateException("Email đã được đăng ký!");
         }
 
         User user = User.builder()
-                .name(req.getName())
+                .name(req.getEmail())
                 .phoneNumber(req.getPhoneNumber())
-                .email(req.getName())
+                .email(req.getEmail())
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .roleId("TENANT")
                 .packageId("FREE")
@@ -63,10 +62,9 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
-    @Override
     public LoginResponse login(LoginRequest req) {
 
-        User user = userRepository.findByPhoneNumber(req.getPhoneNumber())
+        User user = userRepository.findByPhoneNumber(req.getPassword())
                 .orElseThrow(() ->
                         new IllegalStateException("Số điện thoại không tồn tại!")
                 );

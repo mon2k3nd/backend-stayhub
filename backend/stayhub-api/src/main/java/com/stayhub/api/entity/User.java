@@ -24,15 +24,20 @@ public class User {
     @Column(name = "email", unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    // nullable = false removed: bảng cũ đã có data, Hibernate không thể
+    // thêm column NOT NULL vào table có sẵn data (PostgreSQL từ chối).
+    // Constraint được đảm bảo bởi AuthService — mọi user mới đều có password.
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @Column(name = "role_id", nullable = false)
     @Builder.Default
     private String roleId = "TENANT";
 
+    // nullable = false removed — cùng lý do như password_hash.
+    // AuthService luôn set status = ACTIVE khi tạo user mới.
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status")
     @Builder.Default
     private UserStatus status = UserStatus.PENDING_VERIFICATION;
 

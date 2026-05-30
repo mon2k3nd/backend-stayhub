@@ -1,8 +1,8 @@
 package com.stayhub.api.service;
 
-import com.stayhub.api.dto.request.LoginRequest;
-import com.stayhub.api.dto.request.RegisterRequest;
+import com.stayhub.api.dto.response.LoginRequest;
 import com.stayhub.api.dto.response.LoginResponse;
+import com.stayhub.api.dto.response.RegisterRequest;
 import com.stayhub.api.dto.response.UserProfileResponse;
 import com.stayhub.api.entity.User;
 
